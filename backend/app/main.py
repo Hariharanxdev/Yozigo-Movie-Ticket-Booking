@@ -1,4 +1,4 @@
-
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -19,14 +19,24 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Allow requests from the local development frontend and deployed frontend
+# Allow the deployed frontend and local development frontend.
+allowed_origins = [
+    "https://patient-motivation-production-15ea.up.railway.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# Optional: configure additional frontend domains through Railway Variables.
+extra_origins = os.getenv("FRONTEND_URL", "")
+allowed_origins.extend(
+    origin.strip().rstrip("/")
+    for origin in extra_origins.split(",")
+    if origin.strip()
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://patient-motivation-production-15ea.up.railway.app",
-    ],
+    allow_origins=list(set(allowed_origins)),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
