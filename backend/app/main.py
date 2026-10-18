@@ -1,9 +1,19 @@
+
 import os
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
+from app.database import Base, engine
+
+# Import all models so SQLAlchemy registers their tables.
+from app.models.user import User
+from app.models.movie import Movie
+from app.models.show import Show
+from app.models.seat import Seat
+from app.models.booking import Booking
 
 from app.api.movies import router as movies_router
 from app.api.shows import router as shows_router
@@ -19,14 +29,16 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Allow the deployed frontend and local development frontend.
+# Create missing tables after registering the models.
+Base.metadata.create_all(bind=engine)
+
+# Configure frontend origins.
 allowed_origins = [
     "https://patient-motivation-production-15ea.up.railway.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
-# Optional: configure additional frontend domains through Railway Variables.
 extra_origins = os.getenv("FRONTEND_URL", "")
 allowed_origins.extend(
     origin.strip().rstrip("/")
@@ -42,11 +54,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Movie poster upload directory
+# Configure uploaded movie posters.
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# Serve uploaded images
 app.mount(
     "/uploads",
     StaticFiles(directory=str(UPLOAD_DIR)),
