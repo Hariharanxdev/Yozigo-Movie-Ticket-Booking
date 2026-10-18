@@ -1,9 +1,80 @@
-import type { Movie, Show, Seat,Booking } from "../types";
 
+import type { Movie, Show, Seat, Booking } from "../types";
 
 const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://127.0.0.1:8000"
 ).replace(/\/+$/, "");
+
+// -------------------- API ERROR HANDLING --------------------
+
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+
+  constructor(status: number, detail: unknown, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+function getErrorMessage(status: number, detail: unknown): string {
+  const backendMessage =
+    typeof detail === "string"
+      ? detail
+      : detail && typeof detail === "object" && "detail" in detail
+        ? (detail as { detail: unknown }).detail
+        : detail;
+
+  const detailText =
+    typeof backendMessage === "string"
+      ? backendMessage
+      : Array.isArray(backendMessage)
+        ? backendMessage
+            .map((item) =>
+              typeof item === "object" && item !== null && "msg" in item
+                ? String(item.msg)
+                : String(item)
+            )
+            .join(", ")
+        : "";
+
+  if (status === 401) {
+    return "Invalid email or password, or your session has expired. Please try again.";
+  }
+
+  if (status === 403) {
+    return "You don't have permission to perform this action.";
+  }
+
+  if (status === 404) {
+    return "The requested information could not be found.";
+  }
+
+  if (status === 409) {
+    if (/seat/i.test(detailText)) {
+      return "Some selected seats are no longer available. Please choose different seats.";
+    }
+
+    return detailText || "This action conflicts with the current state. Please refresh and try again.";
+  }
+
+  if (status === 422) {
+    return "Some information is invalid. Please check your input and try again.";
+  }
+
+  if (status === 429) {
+    return "Too many requests. Please wait a moment and try again.";
+  }
+
+  if (status >= 500) {
+    return "Something went wrong on the server. Please try again later.";
+  }
+
+  return detailText || "Something went wrong. Please try again.";
+}
 
 // Generic API request function
 async function request<T>(
@@ -12,32 +83,75 @@ async function request<T>(
 ): Promise<T> {
   const headers = new Headers(options.headers);
 
-  headers.set("Content-Type", "application/json");
+  if (!(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
 
-  // Add the saved JWT token when available
   const token = localStorage.getItem("access_token");
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
 
-  if (!response.ok) {
-    const message = await response.text();
-
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch {
     throw new Error(
-      `API error ${response.status}: ${message || response.statusText}`
+      "Unable to connect to the server. Please check your internet connection and try again."
     );
   }
 
-  return response.json() as Promise<T>;
+  const contentType = response.headers.get("content-type") || "";
+  let responseData: unknown = null;
+
+  try {
+    if (response.status !== 204) {
+      responseData = contentType.includes("application/json")
+        ? await response.json()
+        : await response.text();
+    }
+  } catch {
+    responseData = null;
+  }
+
+  if (!response.ok) {
+    const detail =
+      responseData &&
+      typeof responseData === "object" &&
+      "detail" in responseData
+        ? (responseData as { detail: unknown }).detail
+        : responseData;
+
+    throw new ApiError(
+      response.status,
+      detail,
+      getErrorMessage(response.status, responseData)
+    );
+  }
+
+  return responseData as T;
 }
 
-// Authentication API
+// Use this in page components to display friendly errors.
+export function getApiErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message || "Something went wrong. Please try again.";
+  }
+
+  return "Something went wrong. Please try again.";
+}
+
+// -------------------- AUTHENTICATION API --------------------
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -60,12 +174,14 @@ export const authApi = {
       body: JSON.stringify(credentials),
     }),
 
- register: (data: RegisterData) =>
+  register: (data: RegisterData) =>
     request<unknown>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 };
+
+// -------------------- USER AND ADMIN API --------------------
 
 export interface CurrentUser {
   id: number;
@@ -81,38 +197,36 @@ export interface CreateMoviePayload {
   language: string;
   poster_url: string;
   certificate: "U" | "UA" | "A";
-
 }
 
 export const adminApi = {
-  getCurrentUser: () =>
-    request<CurrentUser>("/api/auth/me"),
+  getCurrentUser: () => request<CurrentUser>("/api/auth/me"),
 
   createMovie: (movie: CreateMoviePayload) =>
     request<Movie>("/api/movies/", {
       method: "POST",
       body: JSON.stringify(movie),
     }),
-  
-updateMovie: (movieId: number, movie: CreateMoviePayload) =>
-  request<Movie>(`/api/movies/${movieId}`, {
-    method: "PUT",
-    body: JSON.stringify(movie),
-  }),
 
-deleteMovie: (movieId: number) =>
-  request<{ message: string }>(`/api/movies/${movieId}`, {
-    method: "DELETE",
-  }),
+  updateMovie: (movieId: number, movie: CreateMoviePayload) =>
+    request<Movie>(`/api/movies/${movieId}`, {
+      method: "PUT",
+      body: JSON.stringify(movie),
+    }),
+
+  deleteMovie: (movieId: number) =>
+    request<{ message: string }>(`/api/movies/${movieId}`, {
+      method: "DELETE",
+    }),
 
   updateShowPrice: (showId: number, ticketPrice: number) =>
-  request<Show>(`/api/shows/${showId}/price`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      ticket_price: ticketPrice,
+    request<Show>(`/api/shows/${showId}/price`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        ticket_price: ticketPrice,
+      }),
     }),
-  }),
-  
+
   createShow: (payload: {
     movie_id: number;
     screen_name: string;
@@ -136,34 +250,56 @@ deleteMovie: (movieId: number) =>
       headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/movies/upload-poster`,
-      {
-        method: "POST",
-        headers,
-        body: formData,
-      }
-    );
+    let response: Response;
 
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || "Poster upload failed");
+    try {
+      response = await fetch(
+        `${API_BASE_URL}/api/movies/upload-poster`,
+        {
+          method: "POST",
+          headers,
+          body: formData,
+        }
+      );
+    } catch {
+      throw new Error(
+        "Unable to upload the poster. Please check your connection."
+      );
     }
 
-    return response.json() as Promise<{
+    const responseData = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const detail =
+        responseData &&
+        typeof responseData === "object" &&
+        "detail" in responseData
+          ? responseData.detail
+          : responseData;
+
+      throw new ApiError(
+        response.status,
+        detail,
+        getErrorMessage(response.status, detail)
+      );
+    }
+
+    return responseData as {
       message: string;
       filename: string;
       poster_url: string;
-    }>;
+    };
   },
 };
 
-// Movie API
+// -------------------- MOVIE API --------------------
+
 export const movieApi = {
   getAll: () => request<Movie[]>("/api/movies/"),
 };
 
-// Showtime API
+// -------------------- SHOWTIME API --------------------
+
 export const showApi = {
   getAll: () => request<Show[]>("/api/shows/"),
 
@@ -179,16 +315,14 @@ export const showApi = {
     }),
 };
 
-// Seat API
+// -------------------- SEAT API --------------------
+
 export const seatApi = {
   getByShowId: (showId: number) =>
     request<Seat[]>(`/api/shows/${showId}/seats`),
 };
 
-// Booking API
-
-
-
+// -------------------- BOOKING API --------------------
 
 export interface StripeCheckoutResponse {
   checkout_url: string;
@@ -200,10 +334,13 @@ export const bookingApi = {
     show_id: number;
     seat_numbers: number[];
   }) =>
-    request<StripeCheckoutResponse>("/api/bookings/create-checkout-session", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    request<StripeCheckoutResponse>(
+      "/api/bookings/create-checkout-session",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
 
   getMyBookings: () =>
     request<Booking[]>("/api/bookings/my-bookings"),
@@ -219,8 +356,7 @@ export const bookingApi = {
     }),
 };
 
-
-
+// -------------------- ADMIN BOOKING API --------------------
 
 export interface AdminBooking {
   booking_id: number;
@@ -242,8 +378,8 @@ export const adminBookingApi = {
     request<AdminBooking[]>("/api/bookings/admin/all-bookings"),
 };
 
+// -------------------- POSTER URL HELPER --------------------
 
-// Movie poster URL helper
 export function getPosterUrl(
   posterPath?: string | null
 ): string {
@@ -251,10 +387,7 @@ export function getPosterUrl(
     return "";
   }
 
-  if (
-    posterPath.startsWith("http://") ||
-    posterPath.startsWith("https://")
-  ) {
+  if (/^https?:\/\//i.test(posterPath)) {
     return posterPath;
   }
 
@@ -263,7 +396,7 @@ export function getPosterUrl(
   }${posterPath}`;
 }
 
-
+// -------------------- SHOW METRICS API --------------------
 
 export interface ShowBookingDetail {
   booking_id: number;

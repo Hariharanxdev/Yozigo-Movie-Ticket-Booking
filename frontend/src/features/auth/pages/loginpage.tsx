@@ -18,11 +18,17 @@ function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (loading) return;
+
     setLoading(true);
     setError("");
 
     try {
-      const result = await authApi.login({ email, password });
+      // Step 1: Authenticate the user.
+      const result = await authApi.login({
+        email: email.trim(),
+        password,
+      });
 
       let accessToken = "";
 
@@ -30,45 +36,70 @@ function LoginPage() {
         accessToken = result;
       } else {
         accessToken =
-          result.access_token ??
-          result.token ??
-          result.accessToken ??
+          result?.access_token ??
+          result?.token ??
+          result?.accessToken ??
           "";
       }
 
       accessToken = accessToken.replace(/^Bearer\s+/i, "").trim();
 
       if (!accessToken || accessToken.toLowerCase() === "string") {
-        throw new Error("Login did not return a valid access token.");
+        setError("Login failed because the server did not return a valid token.");
+        return;
       }
 
+      // Step 2: Save the token only after successful authentication.
       localStorage.setItem("access_token", accessToken);
 
-// Check whether the logged-in user is an admin.
-const currentUser = await adminApi.getCurrentUser();
+      // Step 3: Check the user's role separately.
+      let isAdmin = false;
 
-// Redirect based on the user's role.
-if (currentUser.is_admin) {
-  navigate("/admin", { replace: true });
-} else {
-  const destination = location.state?.from;
+      try {
+        const currentUser = await adminApi.getCurrentUser();
+        isAdmin = Boolean(currentUser?.is_admin);
+      } catch {
+        // Login succeeded, but the profile/role request failed.
+        // Keep the token and continue to the normal user destination.
+        console.error("Unable to retrieve the current user's role.");
+      }
 
-  const returnTo =
-    destination?.pathname &&
-    destination.pathname !== "/login" &&
-    destination.pathname !== "/register" &&
-    !destination.pathname.startsWith("/admin")
-      ? `${destination.pathname}${destination.search ?? ""}${destination.hash ?? ""}`
-      : "/";
+      // Step 4: Redirect to the appropriate page.
+      if (isAdmin) {
+        navigate("/admin", { replace: true });
+        return;
+      }
 
-  navigate(returnTo, { replace: true });
-}
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Login failed. Please check your credentials."
-      );
+      const destination = location.state?.from;
+
+      const returnTo =
+        destination?.pathname &&
+        destination.pathname !== "/login" &&
+        destination.pathname !== "/register" &&
+        !destination.pathname.startsWith("/admin")
+          ? `${destination.pathname}${destination.search ?? ""}${destination.hash ?? ""}`
+          : "/";
+
+      navigate(returnTo, { replace: true });
+    } catch (err: unknown) {
+      // Step 5: Show a friendly message instead of raw API details.
+      const message =
+        err instanceof Error ? err.message : "";
+
+      if (
+        /\b401\b/.test(message) ||
+        /invalid email or password|incorrect password|unauthorized/i.test(message)
+      ) {
+        setError("Invalid email or password. Please try again.");
+      } else if (
+        /failed to fetch|network error|networkerror|load failed/i.test(message)
+      ) {
+        setError(
+          "Unable to connect to the server. Please check your connection and try again."
+        );
+      } else {
+        setError("We couldn't sign you in. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -98,6 +129,7 @@ if (currentUser.is_admin) {
               placeholder="you@example.com"
               autoComplete="email"
               required
+              disabled={loading}
             />
 
             <label htmlFor="password">Password</label>
@@ -109,10 +141,11 @@ if (currentUser.is_admin) {
               placeholder="Enter your password"
               autoComplete="current-password"
               required
+              disabled={loading}
             />
 
             {error && (
-              <div className="booking-error" role="alert">
+              <div className="booking-error" role="alert" aria-live="polite">
                 {error}
               </div>
             )}
