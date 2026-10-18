@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/layout/navbar";
 import { authApi, adminApi } from "../../../services/api";
 
-import "./LoginPage.css";
+import "./loginpage.css";
 
 function LoginPage() {
   const navigate = useNavigate();
