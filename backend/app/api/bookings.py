@@ -249,10 +249,9 @@ def create_checkout_session(
         db.flush()
 
         frontend_url = os.getenv(
-            "FRONTEND_URL",
-            "http://localhost:5173",
-        )
-
+    "FRONTEND_URL",
+    "https://patient-motivation-production-15ea.up.railway.app",
+).rstrip("/")
         session = stripe.checkout.Session.create(
             mode="payment",
             line_items=[
