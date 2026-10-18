@@ -1,0 +1,19 @@
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# React
+node_modules/
+frontend/dist/
+
+# Editor and logs
+.vscode/
+*.log

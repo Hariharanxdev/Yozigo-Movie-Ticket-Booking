@@ -1,0 +1,95 @@
+
+.navbar {
+  min-height: 76px;
+  padding: 0 8%;
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  border-bottom: 1px solid #26262d;
+  background: #0c0c0f;
+}
+
+.logo {
+  flex-shrink: 0;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+}
+
+.logo span {
+  color: #ff496c;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  color: #c4c4ce;
+  font-size: 14px;
+}
+
+.navbar-links a:hover,
+.my-bookings-link:hover {
+  color: #ff496c;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-left: auto;
+}
+
+.my-bookings-link {
+  color: #c4c4ce;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 22px;
+  border: 1px solid #42424c;
+  border-radius: 8px;
+  background: transparent;
+  color: white;
+  font: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.login-button:hover {
+  border-color: #ff496c;
+  color: #ff6683;
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    padding: 12px 4%;
+    gap: 14px;
+  }
+
+  .logo {
+    font-size: 22px;
+  }
+
+  .navbar-links {
+    gap: 12px;
+    font-size: 12px;
+  }
+
+  .navbar-actions {
+    gap: 10px;
+  }
+
+  .my-bookings-link {
+    font-size: 11px;
+  }
+
+  .login-button {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}

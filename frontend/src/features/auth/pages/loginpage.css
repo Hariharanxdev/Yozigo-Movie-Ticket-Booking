@@ -1,0 +1,85 @@
+.login-page {
+  min-height: calc(100vh - 76px);
+  display: grid;
+  place-items: center;
+  padding: 40px 20px;
+  background:
+    radial-gradient(ellipse at top, #321520 0%, transparent 55%),
+    #0c0c0f;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 430px;
+  padding: 36px;
+  border: 1px solid #30303a;
+  border-radius: 16px;
+  background: #15151a;
+}
+
+.login-card h1 {
+  margin: 0 0 12px;
+  font-size: 32px;
+  letter-spacing: -1px;
+}
+
+.login-description {
+  margin-bottom: 28px;
+  color: #aaa9b5;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-card label {
+  margin-top: 8px;
+  color: #dedee7;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid #41414c;
+  border-radius: 8px;
+  outline: none;
+  background: #0c0c0f;
+  color: white;
+  font: inherit;
+}
+
+.login-card input:focus {
+  border-color: #ff496c;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.login-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.login-back {
+  margin: 24px 0 0;
+  text-align: center;
+  font-size: 13px;
+}
+
+.login-back a {
+  color: #ff6683;
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 24px;
+  }
+}
