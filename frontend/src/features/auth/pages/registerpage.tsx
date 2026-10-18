@@ -3,7 +3,9 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./registerpage.css";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+
+const API_BASE_URL =
+  "https://yozigo-movie-ticket-booking-production.up.railway.app";
 
 export default function Register() {
   const navigate = useNavigate();
