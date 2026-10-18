@@ -34,7 +34,7 @@ Base.metadata.create_all(bind=engine)
 
 # Configure frontend origins.
 allowed_origins = [
-    "https://patient-motivation-production-15ea.up.railway.app",
+    "https://yozigo-movie-booking-15ea.up.railway.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]

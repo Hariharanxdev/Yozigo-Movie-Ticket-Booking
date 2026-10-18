@@ -250,7 +250,7 @@ def create_checkout_session(
 
         frontend_url = os.getenv(
     "FRONTEND_URL",
-    "https://patient-motivation-production-15ea.up.railway.app",
+    "https://yozigo-movie-booking-15ea.up.railway.app",
 ).rstrip("/")
         session = stripe.checkout.Session.create(
             mode="payment",
@@ -519,3 +519,101 @@ def cancel_booking(
     except Exception:
         db.rollback()
         raise
+@router.post("/stripe-webhook")
+async def stripe_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+    if not webhook_secret:
+        raise HTTPException(
+            status_code=500,
+            detail="Stripe webhook secret is not configured",
+        )
+
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload,
+            signature,
+            webhook_secret,
+        )
+    except (ValueError, stripe.SignatureVerificationError):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid Stripe webhook",
+        )
+
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+
+        # Only confirm a booking after Stripe reports payment success.
+        if session.get("payment_status") != "paid":
+            return {"received": True, "status": "payment_not_completed"}
+
+        booking_id = session.get("metadata", {}).get("booking_id")
+
+        if not booking_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Booking ID missing from Stripe session",
+            )
+
+        try:
+            booking = (
+                db.query(Booking)
+                .filter(Booking.id == int(booking_id))
+                .with_for_update()
+                .first()
+            )
+
+            if not booking:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Booking not found",
+                )
+
+            # Make repeated webhook deliveries safe.
+            if booking.status.lower() == "confirmed":
+                return {"received": True, "status": "confirmed"}
+
+            # Verify this is the checkout session for this booking.
+            if booking.stripe_session_id != session.get("id"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Stripe session does not match booking",
+                )
+
+            booking_seats = (
+                db.query(BookingSeat, Seat)
+                .join(Seat, BookingSeat.seat_id == Seat.id)
+                .filter(BookingSeat.booking_id == booking.id)
+                .with_for_update()
+                .all()
+            )
+
+            for booking_seat, seat in booking_seats:
+                # Do not overwrite a seat taken by another booking.
+                if seat.is_booked:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Seat {seat.seat_number} is already booked",
+                    )
+
+                seat.is_booked = True
+                seat.held_by_user_id = None
+                seat.hold_expires_at = None
+
+            booking.status = "confirmed"
+            db.commit()
+
+            return {"received": True, "status": "confirmed"}
+
+        except Exception:
+            db.rollback()
+            raise
+
+    return {"received": True}
