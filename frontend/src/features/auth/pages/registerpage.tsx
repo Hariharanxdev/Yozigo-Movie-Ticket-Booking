@@ -5,7 +5,7 @@ import "./registerpage.css";
 
 
 const API_BASE_URL =
-  "https://yozigo-movie-ticket-booking-production.up.railway.app";
+  import.meta.env.VITE_API_BASE_URL;
 
 export default function Register() {
   const navigate = useNavigate();
