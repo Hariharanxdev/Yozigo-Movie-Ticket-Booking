@@ -12,7 +12,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is missing from environment variables")
 
-# Use the psycopg2 driver for PostgreSQL
+# Explicitly select the psycopg2 PostgreSQL driver.
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace(
         "postgres://", "postgresql+psycopg2://", 1
