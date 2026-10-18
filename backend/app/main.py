@@ -1,6 +1,8 @@
+
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.movies import router as movies_router
@@ -8,21 +10,22 @@ from app.api.shows import router as shows_router
 from app.api.seats import router as seats_router
 from app.api.auth import router as auth_router
 from app.api.bookings import router as bookings_router
-from fastapi.middleware.cors import CORSMiddleware
 from app.api import payments
 
 
 app = FastAPI(
     title="Yozigo Movie Ticket Booking API",
     description="Backend API for the Yozigo movie ticket booking application",
-    version="1.0.0"
+    version="1.0.0",
 )
 
+# Allow requests from the local development frontend and deployed frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "https://patient-motivation-production-15ea.up.railway.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -37,7 +40,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount(
     "/uploads",
     StaticFiles(directory=str(UPLOAD_DIR)),
-    name="uploads"
+    name="uploads",
 )
 
 
