@@ -9,3 +9,5 @@ python-multipart
 stripe
 email-validator
 psycopg[binary]
+
+psycopg[binary]
