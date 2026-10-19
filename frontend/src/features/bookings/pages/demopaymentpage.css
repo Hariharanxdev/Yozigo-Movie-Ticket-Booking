@@ -1,0 +1,144 @@
+
+.demo-payment-page {
+  width: min(720px, calc(100% - 32px));
+  margin: 36px auto;
+}
+
+.demo-payment-card {
+  margin-top: 20px;
+  padding: 28px;
+  border: 1px solid #34343f;
+  border-radius: 16px;
+  background: #15151c;
+  color: #f8fafc;
+}
+
+.demo-payment-card h1 {
+  margin: 8px 0;
+  font-size: clamp(26px, 5vw, 34px);
+}
+
+.demo-payment-subtitle,
+.demo-payment-note {
+  color: #b8b8c7;
+  line-height: 1.6;
+}
+
+.demo-payment-details {
+  display: grid;
+  gap: 0;
+  margin-top: 24px;
+  border-top: 1px solid #34343f;
+}
+
+.demo-payment-details > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid #34343f;
+}
+
+.demo-payment-details span,
+.demo-payment-countdown span {
+  color: #b8b8c7;
+}
+
+.demo-payment-details strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.demo-payment-countdown {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 0;
+  padding: 16px;
+  border-radius: 10px;
+  background: #242430;
+}
+
+.demo-payment-countdown strong {
+  font-size: 22px;
+}
+
+.countdown-warning strong {
+  color: #fbbf24;
+}
+
+.demo-payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.demo-payment-actions button,
+.payment-error button {
+  min-height: 44px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.payment-failure-button {
+  background: #991b1b;
+  color: white;
+}
+
+.demo-payment-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.payment-error {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #ef4444;
+  border-radius: 10px;
+  background: #451a1a;
+  color: #fecaca;
+}
+
+.payment-error p {
+  line-height: 1.6;
+}
+
+.demo-payment-note {
+  margin-top: 20px;
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .demo-payment-card {
+    padding: 20px;
+  }
+
+  .demo-payment-details > div {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .demo-payment-details strong {
+    text-align: left;
+  }
+
+  .demo-payment-actions {
+    flex-direction: column;
+  }
+
+  .demo-payment-actions button {
+    width: 100%;
+  }
+}
+
+.payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}

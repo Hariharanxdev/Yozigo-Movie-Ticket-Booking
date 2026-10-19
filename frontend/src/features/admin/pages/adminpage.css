@@ -317,3 +317,62 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Movie table: Edit and Delete buttons */
+.admin-action-buttons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.admin-table .admin-action-buttons button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 38px;
+  padding: 8px 13px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* Edit button */
+.admin-table .admin-save-button {
+  background: #ff496c;
+  border-color: #ff496c;
+  color: #ffffff;
+}
+
+.admin-table .admin-save-button:hover {
+  background: #e83257;
+  border-color: #e83257;
+}
+
+/* Delete button */
+.admin-table .admin-delete-button {
+  background: #25252d;
+  border-color: #41414b;
+  color: #f5f5f7;
+}
+
+.admin-table .admin-delete-button:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.admin-table .admin-action-buttons button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}

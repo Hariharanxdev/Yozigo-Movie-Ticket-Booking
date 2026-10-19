@@ -96,15 +96,19 @@ def checkout(
 
         # Simulate payment failure.
         if not payload.payment_success:
-            for seat in seats:
-                seat.held_by_user_id = None
-                seat.hold_expires_at = None
+            #for seat in seats:
+             #   seat.held_by_user_id = None
+              #  seat.hold_expires_at = None
 
             db.commit()
 
             return {
-                "status": "payment_failed",
-                "message": "Payment failed. Your seat holds have been released.",
+                 "status": "payment_failed",
+                "message": (
+                    "Payment failed. No booking was created. "
+                    "Your seats remain held until the original "
+                    "hold expires. Please try again."
+                ),
             }
 
         # Calculate the total from the show price.
@@ -378,6 +382,72 @@ def get_my_bookings(
 
     return result
 
+# --------------------------------------------------
+# CUSTOMER: CHECK STRIPE BOOKING CONFIRMATION
+# --------------------------------------------------
+@router.get("/payment-status")
+def get_payment_status(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    booking = (
+        db.query(Booking)
+        .filter(
+            Booking.stripe_session_id == session_id,
+            Booking.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not booking:
+        raise HTTPException(
+            status_code=404,
+            detail="Booking not found for this payment session",
+        )
+
+    show = (
+        db.query(Show)
+        .filter(Show.id == booking.show_id)
+        .first()
+    )
+
+    movie = None
+    if show:
+        movie = (
+            db.query(Movie)
+            .filter(Movie.id == show.movie_id)
+            .first()
+        )
+
+    booking_seats = (
+        db.query(BookingSeat, Seat)
+        .join(Seat, BookingSeat.seat_id == Seat.id)
+        .filter(BookingSeat.booking_id == booking.id)
+        .all()
+    )
+
+    
+    return {
+        "booking_id": booking.id,
+        "status": booking.status,
+        "movie_title": movie.title if movie else "Movie",
+        "show_id": booking.show_id,
+        "screen_name": show.screen_name if show else None,
+        "show_start_time": (
+            show.start_time.isoformat() if show else None
+        ),
+        "show_end_time": (
+            show.end_time.isoformat() if show else None
+        ),
+        "seat_numbers": sorted(
+            [
+                f"{seat.row_label}{seat.seat_number}"
+                for booking_seat, seat in booking_seats
+            ]
+        ),
+        "total_amount": float(booking.total_amount),
+    }
 
 
 # --------------------------------------------------

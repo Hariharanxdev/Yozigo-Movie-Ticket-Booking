@@ -17,6 +17,9 @@ import MyBookingsPage from "./features/bookings/pages/mybookingpage";
 import AdminPage from "./features/admin/pages/adminpage";
 import AdminDashboardPage from "./features/admin/pages/admindashboardpage";
 import AdminBookingsPage from "./features/admin/pages/adminbookingspage";
+import PaymentCancelPage from "./features/bookings/pages/paymentcancelpage";
+import DemoPaymentPage from "./features/bookings/pages/demopaymentpage";
+import PaymentSuccessPage from "./features/bookings/pages/paymentsuccesspage";
 
 import "./App.css";
 
@@ -109,7 +112,31 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/payment-cancel"
+          element={
+            <ProtectedRoute>
+              <PaymentCancelPage />
+            </ProtectedRoute>
+          }
+        />
 
+        <Route
+          path="/demo-payment/:showId"
+          element={
+            <ProtectedRoute>
+              <DemoPaymentPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payment-success"
+          element={
+            <ProtectedRoute>
+              <PaymentSuccessPage />
+            </ProtectedRoute>
+          }
+        />
         {/* Unknown URLs */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

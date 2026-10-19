@@ -342,6 +342,25 @@ export const bookingApi = {
       }
     ),
 
+  
+  simulateCheckout: (data: {
+    show_id: number;
+    seat_numbers: number[];
+    payment_success: boolean;
+  }) =>
+    request<{
+      message: string;
+      booking_id?: number;
+      show_id?: number;
+      seat_numbers?: number[];
+      total_amount?: number;
+      status: string;
+    }>("/api/bookings/checkout", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+
   getMyBookings: () =>
     request<Booking[]>("/api/bookings/my-bookings"),
 
@@ -354,6 +373,21 @@ export const bookingApi = {
     }>(`/api/bookings/${bookingId}/cancel`, {
       method: "POST",
     }),
+
+  getStripePaymentStatus: (sessionId: string) =>
+  request<{
+    booking_id: number;
+    status: string;
+    movie_title: string;
+    show_id: number;
+    screen_name: string | null;
+    show_start_time: string | null;
+    show_end_time: string | null;
+    seat_numbers: string[];
+    total_amount: number;
+  }>(
+    `/api/bookings/payment-status?session_id=${encodeURIComponent(sessionId)}`
+  ),
 };
 
 // -------------------- ADMIN BOOKING API --------------------

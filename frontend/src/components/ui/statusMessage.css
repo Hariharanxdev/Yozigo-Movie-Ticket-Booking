@@ -1,0 +1,40 @@
+
+.status-message {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.status-message p {
+  margin: 0;
+}
+
+.status-message--error {
+  color: #fecaca;
+  background: #451a1a;
+  border-color: #7f1d1d;
+}
+
+.status-message--success {
+  color: #bbf7d0;
+  background: #14532d;
+  border-color: #166534;
+}
+
+.status-message--info {
+  color: #bfdbfe;
+  background: #172554;
+  border-color: #1d4ed8;
+}
+
+.status-message__action {
+  margin-top: 12px;
+}
+
+.status-message button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}

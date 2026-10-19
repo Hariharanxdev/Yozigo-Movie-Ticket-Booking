@@ -1,13 +1,12 @@
 
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import Navbar from "../../../components/layout/navbar";
 import {
   movieApi,
   showApi,
   seatApi,
-  bookingApi,
 } from "../../../services/api";
 
 import type { Movie, Show, Seat } from "../../../types";
@@ -20,8 +19,48 @@ type BookingStatus =
   | "processing"
   | "confirmed";
 
+function getFriendlyError(
+  err: unknown,
+  fallback: string
+): string {
+  if (err instanceof TypeError) {
+    return "Unable to connect to the server. Please check your connection and try again.";
+  }
+
+  if (err instanceof Error) {
+    const message = err.message.toLowerCase();
+
+    if (
+      message.includes("401") ||
+      message.includes("unauthorized")
+    ) {
+      return "Your session may have expired. Please log in again.";
+    }
+
+    if (
+      message.includes("409") ||
+      message.includes("already booked") ||
+      message.includes("not available")
+    ) {
+      return "One or more seats are no longer available. Please refresh the seat map and try again.";
+    }
+
+    if (message.includes("expired")) {
+      return "Your seat hold has expired. Please select your seats again.";
+    }
+
+    if (message.includes("hold")) {
+      return "We couldn't hold those seats. Please refresh the seat map and try again.";
+    }
+  }
+
+  return fallback;
+}
+
 function SeatSelectionPage() {
   const { showId } = useParams();
+  const navigate = useNavigate();
+
   const selectedShowId = Number(showId);
 
   const [movie, setMovie] = useState<Movie | null>(null);
@@ -35,8 +74,9 @@ function SeatSelectionPage() {
   const [bookingStatus, setBookingStatus] =
     useState<BookingStatus>("idle");
 
-  // Seat-hold countdown state
-  const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
+  // Seat-hold countdown state.
+  const [holdExpiresAt, setHoldExpiresAt] =
+    useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
 
   useEffect(() => {
@@ -47,7 +87,10 @@ function SeatSelectionPage() {
       setError("");
 
       try {
-        if (!Number.isInteger(selectedShowId) || selectedShowId <= 0) {
+        if (
+          !Number.isInteger(selectedShowId) ||
+          selectedShowId <= 0
+        ) {
           throw new Error("Invalid show selected.");
         }
 
@@ -62,15 +105,18 @@ function SeatSelectionPage() {
         setSeats(seatData);
         setShow(showData);
         setMovie(
-          movies.find((item) => item.id === showData.movie_id) ?? null
+          movies.find(
+            (item) => item.id === showData.movie_id
+          ) ?? null
         );
       } catch (err) {
         if (cancelled) return;
 
         setError(
-          err instanceof Error
-            ? err.message
-            : "Could not load seat information."
+          getFriendlyError(
+            err,
+            "We couldn't load the seat information. Please try again."
+          )
         );
       } finally {
         if (!cancelled) {
@@ -86,39 +132,6 @@ function SeatSelectionPage() {
     };
   }, [selectedShowId]);
 
-  
-  // Flow 10: Automatically refresh seat availability every 3 seconds.
-  useEffect(() => {
-    if (!Number.isInteger(selectedShowId) || selectedShowId <= 0) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const refreshSeats = async () => {
-      try {
-        const latestSeats = await seatApi.getByShowId(selectedShowId);
-
-        if (!cancelled) {
-          setSeats(latestSeats);
-        }
-      } catch (err) {
-        // Keep the current seat map if a temporary refresh fails.
-        console.warn("Live seat refresh failed:", err);
-      }
-    };
-
-    const intervalId = window.setInterval(() => {
-      void refreshSeats();
-    }, 3000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [selectedShowId]);
-
-
   const selectedSeats = seats.filter((seat) =>
     selectedSeatIds.includes(seat.id)
   );
@@ -131,13 +144,15 @@ function SeatSelectionPage() {
       return;
     }
 
-    if (seat.is_booked || seat.status.toLowerCase() === "booked") {
+    if (
+      seat.is_booked ||
+      seat.status.toLowerCase() === "booked"
+    ) {
       return;
     }
 
     const isAlreadySelected = selectedSeatIds.includes(seat.id);
 
-    // Allow customers to deselect a seat.
     if (isAlreadySelected) {
       setSelectedSeatIds((current) =>
         current.filter((id) => id !== seat.id)
@@ -146,16 +161,26 @@ function SeatSelectionPage() {
       return;
     }
 
-    // Maximum of six seats per booking.
     if (selectedSeatIds.length >= 6) {
       setActionError(
-        "Maximum seat limit reached! You can select only 6 seats."
+        "You can select a maximum of 6 seats per booking."
       );
       return;
     }
 
     setSelectedSeatIds((current) => [...current, seat.id]);
     setActionError("");
+  }
+
+  async function refreshSeats() {
+    try {
+      const updatedSeats =
+        await seatApi.getByShowId(selectedShowId);
+
+      setSeats(updatedSeats);
+    } catch (err) {
+      console.error("Could not refresh seat availability:", err);
+    }
   }
 
   async function handleHoldSeats() {
@@ -168,15 +193,19 @@ function SeatSelectionPage() {
     setBookingStatus("holding");
 
     try {
-      // The backend expects seat numbers, not seat database IDs.
-      const seatNumbers = selectedSeats.map((seat) => seat.seat_number);
+      // The backend expects seat numbers, not database IDs.
+      const seatNumbers = selectedSeats.map(
+        (seat) => seat.seat_number
+      );
 
       const holdResponse = (await showApi.holdSeats(
         selectedShowId,
         seatNumbers
       )) as { expires_at: string };
 
-      const expiryTime = new Date(holdResponse.expires_at).getTime();
+      const expiryTime = new Date(
+        holdResponse.expires_at
+      ).getTime();
 
       if (!Number.isFinite(expiryTime)) {
         throw new Error(
@@ -184,48 +213,48 @@ function SeatSelectionPage() {
         );
       }
 
-      // The hold might expire while the request is in progress.
       if (Date.now() >= expiryTime) {
         setHoldExpiresAt(null);
         setSecondsLeft(0);
         setSelectedSeatIds([]);
         setBookingStatus("idle");
+
         setActionError(
           "Your seat hold has expired. Please select your seats again."
         );
 
-        const updatedSeats = await seatApi.getByShowId(selectedShowId);
-        setSeats(updatedSeats);
+        await refreshSeats();
         return;
       }
 
       setHoldExpiresAt(expiryTime);
       setSecondsLeft(
-        Math.max(0, Math.ceil((expiryTime - Date.now()) / 1000))
+        Math.max(
+          0,
+          Math.ceil((expiryTime - Date.now()) / 1000)
+        )
       );
       setBookingStatus("held");
     } catch (err) {
       setBookingStatus("idle");
 
       setActionError(
-        err instanceof Error
-          ? err.message
-          : "Unable to hold seats. Please try again."
+        getFriendlyError(
+          err,
+          "We couldn't hold your seats. Please try again."
+        )
       );
 
-      // Refresh the map in case another customer took a seat.
-      try {
-        const updatedSeats = await seatApi.getByShowId(selectedShowId);
-        setSeats(updatedSeats);
-      } catch (refreshError) {
-        console.error("Could not refresh seat availability:", refreshError);
-      }
+      await refreshSeats();
     }
   }
 
-  // Update the countdown every second while seats are held.
+  // Keep the countdown active while the seats are held.
   useEffect(() => {
-    if (bookingStatus !== "held" || holdExpiresAt === null) {
+    if (
+      bookingStatus !== "held" ||
+      holdExpiresAt === null
+    ) {
       return;
     }
 
@@ -245,104 +274,78 @@ function SeatSelectionPage() {
         setBookingStatus("idle");
         setSelectedSeatIds([]);
         setHoldExpiresAt(null);
+
         setActionError(
           "Your 5-minute seat hold has expired. Please select your seats again."
         );
 
-        seatApi
-          .getByShowId(selectedShowId)
-          .then((updatedSeats) => setSeats(updatedSeats))
-          .catch((refreshError) => {
-            console.error(
-              "Could not refresh seats after hold expiry:",
-              refreshError
-            );
-          });
+        void refreshSeats();
       }
     };
 
     updateCountdown();
 
-    const timerId = window.setInterval(updateCountdown, 1000);
+    const timerId = window.setInterval(
+      updateCountdown,
+      1000
+    );
 
     return () => window.clearInterval(timerId);
   }, [bookingStatus, holdExpiresAt, selectedShowId]);
 
-
-async function handleCheckout() {
-  if (bookingStatus !== "held") {
-    return;
-  }
-
-  if (holdExpiresAt === null || Date.now() >= holdExpiresAt) {
-    setBookingStatus("idle");
-    setSelectedSeatIds([]);
-    setHoldExpiresAt(null);
-    setSecondsLeft(0);
-    setActionError(
-      "Your seat hold has expired. Please select your seats again."
-    );
-
-    try {
-      const updatedSeats = await seatApi.getByShowId(selectedShowId);
-      setSeats(updatedSeats);
-    } catch (error) {
-      console.error("Could not refresh seats:", error);
+  // Navigate to the separate Demo Payment page.
+  function handleProceedToPayment() {
+    if (bookingStatus !== "held") {
+      setActionError(
+        "Please hold your seats before proceeding to payment."
+      );
+      return;
     }
 
-    return;
-  }
-
-  setActionError("");
-  setBookingStatus("processing");
-
-  try {
-    const seatNumbers = selectedSeats.map(
-      (seat) => seat.seat_number
-    );
-
-    const response = await bookingApi.createStripeCheckout({
-      show_id: selectedShowId,
-      seat_numbers: seatNumbers,
-    });
-
-    if (!response.checkout_url) {
-      throw new Error("Stripe did not return a checkout URL.");
-    }
-
-    // Redirect to Stripe's hosted payment page.
-    window.location.assign(response.checkout_url);
-  } catch (error) {
-    if (holdExpiresAt !== null && Date.now() >= holdExpiresAt) {
+    if (
+      holdExpiresAt === null ||
+      Date.now() >= holdExpiresAt
+    ) {
       setBookingStatus("idle");
       setSelectedSeatIds([]);
       setHoldExpiresAt(null);
       setSecondsLeft(0);
+
       setActionError(
-        "Your seat hold expired. Please select your seats again."
+        "Your seat hold has expired. Please select your seats again."
       );
-    } else {
-      setBookingStatus("held");
-      setActionError(
-        error instanceof Error
-          ? error.message
-          : "Unable to start Stripe Checkout. Please try again."
-      );
+
+      void refreshSeats();
+      return;
     }
 
-    try {
-      const updatedSeats = await seatApi.getByShowId(selectedShowId);
-      setSeats(updatedSeats);
-    } catch (refreshError) {
-      console.error("Could not refresh seats:", refreshError);
+    if (selectedSeats.length === 0) {
+      setActionError(
+        "Your selected seats are unavailable. Please select your seats again."
+      );
+      return;
     }
+
+    setActionError("");
+
+    navigate(`/demo-payment/${selectedShowId}`, {
+      state: {
+        movieTitle: movie?.title ?? "Movie",
+        seatLabels: selectedSeats.map(
+          (seat) => seat.seat_label
+        ),
+        seatNumbers: selectedSeats.map(
+          (seat) => seat.seat_number
+        ),
+        totalPrice,
+        holdExpiresAt,
+      },
+    });
   }
-}
 
-
-  const formattedTime = `${Math.floor(secondsLeft / 60)}:${String(
-    secondsLeft % 60
-  ).padStart(2, "0")}`;
+  const formattedTime = `${Math.floor(
+    secondsLeft / 60
+  )}:${String(secondsLeft % 60).padStart(2, "0")}`;
 
   return (
     <div className="app">
@@ -362,7 +365,8 @@ async function handleCheckout() {
           <h1>Select your seats</h1>
 
           <p>
-            {movie?.title ?? "Movie"} · {show?.screen_name ?? "Cinema screen"}
+            {movie?.title ?? "Movie"} ·{" "}
+            {show?.screen_name ?? "Cinema screen"}
           </p>
 
           {show && (
@@ -373,12 +377,29 @@ async function handleCheckout() {
           )}
         </div>
 
-        {loading && <p className="message">Loading seats...</p>}
+        {loading && (
+          <p className="message" role="status">
+            Loading seats...
+          </p>
+        )}
 
-        {error && <p className="message error">{error}</p>}
+        {error && (
+          <div className="booking-error" role="alert">
+            <p>{error}</p>
+            <button
+              type="button"
+              className="continue-button"
+              onClick={() => window.location.reload()}
+            >
+              Try again
+            </button>
+          </div>
+        )}
 
         {!loading && !error && seats.length === 0 && (
-          <p className="message">No seats are configured for this show.</p>
+          <p className="message">
+            No seats are configured for this show.
+          </p>
         )}
 
         {!loading && !error && seats.length > 0 && (
@@ -396,27 +417,38 @@ async function handleCheckout() {
 
             <section className="booking-summary">
               <div className="selected-info">
-                <span className="summary-label">SELECTED SEATS</span>
+                <span className="summary-label">
+                  SELECTED SEATS
+                </span>
 
                 <h3>
                   {selectedSeats.length > 0
-                    ? selectedSeats.map((seat) => seat.seat_label).join(", ")
+                    ? selectedSeats
+                        .map((seat) => seat.seat_label)
+                        .join(", ")
                     : "No seats selected"}
                 </h3>
 
                 <p>
                   {selectedSeats.length}{" "}
-                  {selectedSeats.length === 1 ? "seat" : "seats"} selected
+                  {selectedSeats.length === 1
+                    ? "seat"
+                    : "seats"}{" "}
+                  selected
                 </p>
               </div>
 
               <div className="total-info">
-                <span className="summary-label">TOTAL AMOUNT</span>
+                <span className="summary-label">
+                  TOTAL AMOUNT
+                </span>
+
                 <h2>₹{totalPrice.toFixed(2)}</h2>
               </div>
 
               {bookingStatus === "idle" && (
                 <button
+                  type="button"
                   className="continue-button"
                   disabled={selectedSeats.length === 0}
                   onClick={handleHoldSeats}
@@ -426,34 +458,49 @@ async function handleCheckout() {
               )}
 
               {bookingStatus === "holding" && (
-                <button className="continue-button" disabled>
+                <button
+                  type="button"
+                  className="continue-button"
+                  disabled
+                >
                   Holding Seats...
                 </button>
               )}
 
               {bookingStatus === "held" && (
                 <button
+                  type="button"
                   className="continue-button"
-                  onClick={handleCheckout}
+                  onClick={handleProceedToPayment}
                 >
-                  Continue to Secure Payment →
+                  Pay →
                 </button>
               )}
 
               {bookingStatus === "processing" && (
-                <button className="continue-button" disabled>
+                <button
+                  type="button"
+                  className="continue-button"
+                  disabled
+                >
                   Processing Booking...
                 </button>
               )}
 
               {bookingStatus === "confirmed" && (
-                <span className="booking-success">✓ Booking Confirmed</span>
+                <span className="booking-success">
+                  ✓ Booking Confirmed
+                </span>
               )}
             </section>
 
             {actionError && (
-              <div className="booking-error" role="alert">
-                {actionError}
+              <div
+                className="booking-error"
+                role="alert"
+                aria-live="assertive"
+              >
+                <p>{actionError}</p>
               </div>
             )}
 
@@ -482,17 +529,20 @@ async function handleCheckout() {
 
                 <p>
                   <strong>Seats:</strong>{" "}
-                  {selectedSeats.map((seat) => seat.seat_label).join(", ")}
+                  {selectedSeats
+                    .map((seat) => seat.seat_label)
+                    .join(", ")}
                 </p>
 
                 <p>
-                  <strong>Total:</strong> ₹{totalPrice.toFixed(2)}
+                  <strong>Total:</strong> ₹
+                  {totalPrice.toFixed(2)}
                 </p>
 
                 <p className="summary-note">
-                  Your seats are temporarily held for five minutes. Confirm
-                  the mock payment before the timer reaches zero. This is a
-                  test flow, not a real payment.
+                  Your seats are temporarily held for five
+                  minutes. Continue to the payment page before
+                  the timer reaches zero.
                 </p>
               </section>
             )}
@@ -501,31 +551,10 @@ async function handleCheckout() {
               <section className="booking-confirmation">
                 <h2>Booking confirmed! 🎉</h2>
 
-                <p>Your checkout request succeeded.</p>
+                <p>Your booking has been confirmed.</p>
 
-                <p>
-                  <strong>Movie:</strong> {movie?.title}
-                </p>
-
-                <p>
-                  <strong>Screen:</strong> {show?.screen_name}
-                </p>
-
-                <p>
-                  <strong>Seats:</strong>{" "}
-                  {selectedSeats.map((seat) => seat.seat_label).join(", ")}
-                </p>
-
-                <p>
-                  <strong>Tickets:</strong> {selectedSeats.length}
-                </p>
-
-                <p>
-                  <strong>Total:</strong> ₹{totalPrice.toFixed(2)}
-                </p>
-
-                <Link className="primary-button" to="/">
-                  Back to Movies
+                <Link className="primary-button" to="/my-bookings">
+                  View My Bookings
                 </Link>
               </section>
             )}
