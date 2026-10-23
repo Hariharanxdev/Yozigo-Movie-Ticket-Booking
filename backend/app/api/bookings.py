@@ -15,7 +15,10 @@ from app.api.auth import get_current_user
 
 
 router = APIRouter(prefix="/api/bookings", tags=["Bookings"])
-
+def get_seat_label(seat: Seat) -> str:
+    """Convert a global seat number into its display label, e.g. 14 -> B4."""
+    column_number = ((seat.seat_number - 1) % 10) + 1
+    return f"{seat.row_label}{column_number}"
 
 # --------------------------------------------------
 # REQUEST SCHEMA
@@ -363,9 +366,13 @@ def get_my_bookings(
             .all()
         )
 
-        seat_numbers = sorted(
-            [seat.seat_number for booking_seat, seat in booking_seats]
-        )
+        seat_numbers = [
+            get_seat_label(seat)
+            for booking_seat, seat in sorted(
+                booking_seats,
+                key=lambda item: item[1].seat_number,
+            )
+        ]
 
         result.append({
             "booking_id": booking.id,
@@ -440,12 +447,13 @@ def get_payment_status(
         "show_end_time": (
             show.end_time.isoformat() if show else None
         ),
-        "seat_numbers": sorted(
-            [
-                f"{seat.row_label}{seat.seat_number}"
-                for booking_seat, seat in booking_seats
-            ]
-        ),
+        "seat_numbers": [
+            get_seat_label(seat)
+            for booking_seat, seat in sorted(
+                booking_seats,
+                key=lambda item: item[1].seat_number,
+            )
+        ],
         "total_amount": float(booking.total_amount),
     }
 
@@ -477,9 +485,13 @@ def get_all_bookings(
             .all()
         )
 
-        seat_numbers = sorted(
-            [seat.seat_number for booking_seat, seat in booking_seats]
-        )
+        seat_numbers = [
+            get_seat_label(seat)
+            for booking_seat, seat in sorted(
+                booking_seats,
+                key=lambda item: item[1].seat_number,
+            )
+        ]
 
         result.append({
             "booking_id": booking.id,

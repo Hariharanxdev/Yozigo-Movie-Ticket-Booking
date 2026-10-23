@@ -19,16 +19,26 @@ interface BookingCardData {
   startTime: string | null;
 }
 
-function formatSeatLabel(seatNumber: number): string {
+
+function formatSeatLabel(seat: number | string): string {
+  // If the backend already returns a label such as "B4", keep it.
+  if (typeof seat === "string" && /^[A-Z]+\d+$/i.test(seat.trim())) {
+    return seat.trim().toUpperCase();
+  }
+
+  // Otherwise, convert a numeric seat number into its label.
+  const seatNumber = Number(seat);
+
+  if (!Number.isInteger(seatNumber) || seatNumber < 1 || seatNumber > 80) {
+    return String(seat);
+  }
+
   const rowIndex = Math.floor((seatNumber - 1) / 10);
   const seatPosition = ((seatNumber - 1) % 10) + 1;
 
-  if (rowIndex < 0 || rowIndex > 25) {
-    return String(seatNumber);
-  }
-
   return `${String.fromCharCode(65 + rowIndex)}${seatPosition}`;
 }
+
 
 function formatDate(value: string): string {
   const date = new Date(value);

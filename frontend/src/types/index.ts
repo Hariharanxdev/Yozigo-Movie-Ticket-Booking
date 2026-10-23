@@ -31,7 +31,7 @@ export interface Seat {
 export interface Booking {
   booking_id: number;
   show_id: number;
-  seat_numbers: number[];
+  seat_numbers: (number | string)[];
   total_amount: number;
   status: string;
   created_at: string;
